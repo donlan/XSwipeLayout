@@ -7,8 +7,11 @@
 
 
 ### 如何使用
-1. 你只需要一个 [XSwipeLayout.java](app/src/main/java/dong/lan/xswipelayout/MainActivity.java)
-2. 布局中使用，XSwipeLayout内部只能装两个view(一个是内容页，一个是菜单页，并且主内容总是放在最后，因为XSwipeLayout继承自FrameLayout)
+
+#### 一. 你只需要一个 [XSwipeLayout.java](/app/src/main/java/dong/lan/xswipelayout/MainActivity.java)
+
+#### 二. 布局中使用，XSwipeLayout内部只能装两个view(一个是内容页，一个是菜单页，并且主内容总是放在最后，因为XSwipeLayout继承自FrameLayout)
+
 ```xml
 <dong.lan.xswipelayout.XSwipeLayout
         android:id="@+id/swipe_layout"
@@ -30,7 +33,7 @@
     </dong.lan.xswipelayout.XSwipeLayout>
 ```
 
-3. 代码中
+#### 三. 代码中
 
 ```java
         swipeLayout = (XSwipeLayout) findViewById(R.id.swipe_layout);
@@ -55,4 +58,4 @@
         });
 ```
 
-4. enjoy～
+#### 四. enjoy～
