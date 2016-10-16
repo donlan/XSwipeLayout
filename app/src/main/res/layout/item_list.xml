@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<dong.lan.library.XSwipeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/swipe_item"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent">
+        <TextView
+            android:background="#77f"
+            android:text="删除"
+            android:textSize="18sp"
+            android:textColor="#fff"
+            android:gravity="center"
+            android:layout_width="60dp"
+            android:layout_height="match_parent" />
+        <TextView
+            android:background="#1f0"
+            android:text="分享"
+            android:textSize="18sp"
+            android:textColor="#fff"
+            android:gravity="center"
+            android:layout_width="60dp"
+            android:layout_height="match_parent" />
+        <TextView
+            android:background="#f33"
+            android:text="赞"
+            android:textSize="18sp"
+            android:textColor="#fff"
+            android:gravity="center"
+            android:layout_width="60dp"
+            android:layout_height="match_parent" />
+    </LinearLayout>
+    <LinearLayout
+        android:padding="12dp"
+        android:background="#eee"
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <ImageView
+            android:src="@drawable/head"
+            android:layout_width="60dp"
+            android:layout_height="60dp" />
+        <TextView
+            android:gravity="center_vertical"
+            android:text="@string/app_name"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </LinearLayout>
+</dong.lan.library.XSwipeLayout>

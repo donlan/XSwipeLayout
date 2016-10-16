@@ -1,8 +1,9 @@
-package dong.lan.xswipelayout;
+  package dong.lan.library;
 
 import android.content.Context;
 import android.support.v4.widget.ViewDragHelper;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.FrameLayout;
@@ -45,6 +46,18 @@ public class XSwipeLayout extends FrameLayout {
     private int mTop;       //菜单view的右上角y坐标
     private float percent;  //菜单view可见部分占菜单总大小的百分比
 
+    private int viewGap;    //菜单view使用match_parent并且是open状态时，与parent的间距。默认0
+
+    private boolean isOpen = false; //菜单view是否已经打开
+    private boolean preOpen = false; //用于判断菜单view是否是从完全打开变成关闭的这个状态
+
+    //处理列表嵌套滑动冲突时，保存上一次列表中某个子view的菜单开关信息
+    private boolean myTouch = false;
+
+    private int modCount = 0;  //内部存在嵌套使用的时候，判断当前view是否可以捕获滑动事件，默认可以捕获
+
+    private int pos = 0;  //在列表中使用的时候，可以用来保存所在列表的位置
+
     public XSwipeLayout(Context context) {
         this(context, null);
     }
@@ -59,8 +72,10 @@ public class XSwipeLayout extends FrameLayout {
     }
 
 
+
     @Override
-    public boolean onInterceptHoverEvent(MotionEvent event) {
+    public boolean onInterceptTouchEvent(MotionEvent event) {
+
         return viewDragHelper.shouldInterceptTouchEvent(event);
     }
 
@@ -68,6 +83,26 @@ public class XSwipeLayout extends FrameLayout {
     public boolean onTouchEvent(MotionEvent event) {
         viewDragHelper.processTouchEvent(event);
         return true;
+    }
+
+    public void setPos(int pos) {
+        this.pos = pos;
+    }
+
+    public int getPos() {
+        return this.pos;
+    }
+
+    /**
+     * 需要要根据子view里的XSwipeLayout的状态，控制当前这个view是否允许捕获拖动事件（滑动冲突的问题）
+     * @param isOpen
+     */
+    public void setMyTouch(boolean isOpen) {
+        if (myTouch && !isOpen)
+            modCount--;
+        if(!myTouch && isOpen)
+            modCount++;
+        myTouch = isOpen;
     }
 
     @Override
@@ -78,23 +113,47 @@ public class XSwipeLayout extends FrameLayout {
         mHeight = menu.getHeight();
         mWidth = menu.getWidth();
         if (swipeFlag == FLAG_RIGHT) {
+            mWidth -= viewGap;
             divinerX = cWidth - mWidth;
             cLeft = 0;
             mLeft = cWidth;
         } else if (swipeFlag == FLAG_LEFT) {
+            mWidth -= viewGap;
             divinerX = mWidth;
             cLeft = 0;
             mLeft = -mWidth;
         } else if (swipeFlag == FLAG_TOP) {
+            mHeight -= viewGap;
             divinerY = mHeight;
             cTop = 0;
             mTop = -mHeight;
         } else if (swipeFlag == FLAG_BOTTOM) {
+            mHeight -= viewGap;
             divinerY = cHeight - mHeight;
             cTop = 0;
             mTop = cHeight;
         }
-        close();
+    }
+
+
+    /**
+     * 主要是在列表比如RecycleView中使用的时候，
+     * 如果当前是菜单打开状态，且已经被滑动出屏幕课件区域，则关闭菜单
+     */
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        if(preOpen)
+            close();
+    }
+
+    @Override
+    public void onScreenStateChanged(int screenState) {
+        super.onScreenStateChanged(screenState);
+        //屏幕关闭时确保菜单view的状态为关闭（解决使用缩放的话会发生错位的问题）
+        if(screenState == SCREEN_STATE_ON && isOpen){
+            close();
+        }
     }
 
     //返回包装主体内容的view（其实是一个VewGroup）
@@ -115,6 +174,19 @@ public class XSwipeLayout extends FrameLayout {
         requestLayout();
     }
 
+    public boolean isOpen() {
+        return isOpen;
+    }
+
+    /**
+     * 设置菜单view完全显示的时候，与屏幕的滑动方向的距离
+     * 类似DrawLayout打开的时候右边留下的空白间距
+     * @param gap
+     */
+    public void setViewGap(int gap) {
+        viewGap = (int) (getResources().getDisplayMetrics().density * gap + 0.5f);
+    }
+
     //菜单view打开（完全可见）
     public void open() {
         if (swipeFlag == FLAG_RIGHT) {
@@ -130,8 +202,13 @@ public class XSwipeLayout extends FrameLayout {
             content.layout(0, -mHeight, cWidth, cHeight - mHeight);
             menu.layout(0, divinerY, mWidth, cHeight);
         }
+
+        isOpen = true;
+        preOpen = true;
+        Log.d(TAG, "open: "+preOpen);
+        percent = 1.0f;
         if (swipeListener != null)
-            swipeListener.onOpen();
+            swipeListener.onOpen(pos);
     }
 
     //菜单view关闭（完全不可见）
@@ -149,8 +226,21 @@ public class XSwipeLayout extends FrameLayout {
             content.layout(0, 0, cWidth, cHeight);
             menu.layout(0, cHeight, mWidth, cHeight + mHeight);
         }
-        if (swipeListener != null)
-            swipeListener.onClose();
+
+
+        isOpen = false;
+        percent = 0.0f;
+
+        if (swipeListener != null) {
+            swipeListener.onClose(pos,preOpen);
+        }
+        if(preOpen) {
+            preOpen = false;
+        }
+    }
+
+    public boolean absClose(){
+        return !preOpen;
     }
 
     @Override
@@ -158,8 +248,6 @@ public class XSwipeLayout extends FrameLayout {
         super.onFinishInflate();
         content = getChildAt(1);
         menu = getChildAt(0);
-        if (swipeListener != null)
-            swipeListener.onClose();
     }
 
 
@@ -171,7 +259,7 @@ public class XSwipeLayout extends FrameLayout {
          */
         @Override
         public boolean tryCaptureView(View child, int pointerId) {
-            return true;
+            return modCount <= 0;
         }
 
         /**
@@ -251,15 +339,15 @@ public class XSwipeLayout extends FrameLayout {
          * 当一个view的拖动事件结束的时候（也就是手指松开屏幕的时候）的回调
          *
          * @param releasedChild 拖动释放的view
-         * @param xvel 拖动释放时该view在x轴的拖动速率(指针离开屏幕时在X轴的速度，以像素/秒为单位。)
-         * @param yvel 拖动释放时该view在y轴的拖动速率(指针离开屏幕时在Y轴的速度，以像素/秒为单位。)
+         * @param xvel          拖动释放时该view在x轴的拖动速率(指针离开屏幕时在X轴的速度，以像素/秒为单位。)
+         * @param yvel          拖动释放时该view在y轴的拖动速率(指针离开屏幕时在Y轴的速度，以像素/秒为单位。)
          */
         @Override
         public void onViewReleased(View releasedChild, float xvel, float yvel) {
-            if (releasedChild == content && percent > 0.3) {
+            if (releasedChild == content && ((percent > 0.3 && !isOpen) || (percent > 0.7 && isOpen))) {
                 open();
                 return;
-            } else if (releasedChild == content && (percent < 0.7)) {
+            } else if (releasedChild == content && ((percent < 0.7 && isOpen) || (percent < 0.3 && !isOpen))) {
                 close();
                 return;
             } else if (releasedChild == menu && percent > 0.7) {
@@ -324,10 +412,10 @@ public class XSwipeLayout extends FrameLayout {
          * 当捕捉到一个view的位置改变后的回调方法
          *
          * @param changedView 位置改变的view
-         * @param left 当前位置改变的view的左上角x坐标
-         * @param top 当前位置改变的view的左上角y坐标
-         * @param dx 与上次拖动导致位置改变的x轴偏移量
-         * @param dy 与上次拖动导致位置改变的x轴偏移量
+         * @param left        当前位置改变的view的左上角x坐标
+         * @param top         当前位置改变的view的左上角y坐标
+         * @param dx          与上次拖动导致位置改变的x轴偏移量
+         * @param dy          与上次拖动导致位置改变的x轴偏移量
          */
         @Override
         public void onViewPositionChanged(View changedView, int left, int top, int dx, int dy) {
@@ -382,9 +470,9 @@ public class XSwipeLayout extends FrameLayout {
         }
     }
 
-    private OnSwipeListener swipeListener = null;
+    private SwipeListener swipeListener = null;
 
-    public void setOnSwipeListener(OnSwipeListener onSwipeListener) {
+    public void setOnSwipeListener(SwipeListener onSwipeListener) {
         swipeListener = onSwipeListener;
     }
 
@@ -392,14 +480,5 @@ public class XSwipeLayout extends FrameLayout {
         swipeListener = null;
     }
 
-    /**
-     * 菜单view关闭，打开，拖动事件的对外回调接口
-     */
-    public interface OnSwipeListener {
-        void onOpen();
 
-        void onClose();
-
-        void onSwipe(float percent);
-    }
 }

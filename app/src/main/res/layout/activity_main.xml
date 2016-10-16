@@ -11,7 +11,7 @@
     android:paddingTop="@dimen/activity_vertical_margin"
     tools:context="dong.lan.xswipelayout.MainActivity">
 
-    <dong.lan.xswipelayout.XSwipeLayout
+    <dong.lan.library.XSwipeLayout
         android:id="@+id/swipe_layout"
         android:layout_weight="1"
         android:layout_width="match_parent"
@@ -42,7 +42,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
         </RelativeLayout>
-    </dong.lan.xswipelayout.XSwipeLayout>
+    </dong.lan.library.XSwipeLayout>
     <LinearLayout
         android:gravity="center"
         android:layout_width="match_parent"

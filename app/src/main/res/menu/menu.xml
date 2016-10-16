@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/active_QQMenu"
+        android:title="QQ侧滑效果"
+        android:orderInCategory="4"/>
+</menu>
