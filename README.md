@@ -40,14 +40,14 @@
         //设置滑动方向，不设置默认是FLAG_RIGHT,也就是菜单view在右边
         swipeLayout.setSwipeFlag(XSwipeLayout.FLAG_RIGHT); 
         //滑动回调，这不是必须的，如果需要根据滑动返回的百分比设置动画，这或许会很有用
-        swipeLayout.setOnSwipeListener(new XSwipeLayout.OnSwipeListener() {
+        swipeLayout.setOnSwipeListener(new SwipeListener() {
             @Override
-            public void onOpen() {
+            public void onOpen(int pos) {
                 swipeLayout.getMenu().setAlpha(1);
             }
 
             @Override
-            public void onClose() {
+            public void onClose(int pos,boolean absClosed) {
                 swipeLayout.getMenu().setAlpha(0);
             }
 
@@ -58,4 +58,8 @@
         });
 ```
 
-#### 四. enjoy～
+### 来个QQ侧滑效果
+
+![](/gif/qq_swipe.gif)
+
+**详细使用可以参考Demo中的[QQSlideViewActivity](/app/src/main/java/dong/lan/xswipelayout/QQSlideViewActivity.java)**
