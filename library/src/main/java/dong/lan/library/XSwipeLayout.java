@@ -1,11 +1,14 @@
-  package dong.lan.library;
+package dong.lan.library;
 
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.support.v4.widget.ViewDragHelper;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.animation.AccelerateDecelerateInterpolator;
+import android.view.animation.AccelerateInterpolator;
 import android.widget.FrameLayout;
 
 /**
@@ -50,7 +53,6 @@ public class XSwipeLayout extends FrameLayout {
 
     private boolean isOpen = false; //菜单view是否已经打开
     private boolean preOpen = false; //用于判断菜单view是否是从完全打开变成关闭的这个状态
-
     //处理列表嵌套滑动冲突时，保存上一次列表中某个子view的菜单开关信息
     private boolean myTouch = false;
 
@@ -69,19 +71,57 @@ public class XSwipeLayout extends FrameLayout {
     public XSwipeLayout(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         viewDragHelper = ViewDragHelper.create(this, 1.0f, new Callback());
+
+        //设置默认的开关动画
+        openAnim = ValueAnimator.ofFloat(0.5f, 1);
+        openAnim.setDuration(200);
+        openAnim.setInterpolator(new AccelerateInterpolator());
+        openAnim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                float f = animation.getAnimatedFraction();
+                open(f);
+            }
+        });
+        closeAnim = ValueAnimator.ofFloat(0.5f, 1);
+        closeAnim.setDuration(200);
+        closeAnim.setInterpolator(new AccelerateDecelerateInterpolator());
+        closeAnim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                float f = animation.getAnimatedFraction();
+                close(f);
+            }
+        });
+
     }
 
 
+    private ValueAnimator openAnim;
+    private ValueAnimator closeAnim;
+
+    public void setOpenAnim(ValueAnimator anim) {
+        openAnim = anim;
+    }
+
+    public void setCloseAnim(ValueAnimator anim) {
+        closeAnim = anim;
+    }
 
     @Override
     public boolean onInterceptTouchEvent(MotionEvent event) {
-
         return viewDragHelper.shouldInterceptTouchEvent(event);
     }
+
+    int openCount = 0;
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         viewDragHelper.processTouchEvent(event);
+        if (!isOpen() && openCount == 0)
+            super.onTouchEvent(event);
+        if (openCount >= 2)
+            openCount = 0;
         return true;
     }
 
@@ -95,12 +135,13 @@ public class XSwipeLayout extends FrameLayout {
 
     /**
      * 需要要根据子view里的XSwipeLayout的状态，控制当前这个view是否允许捕获拖动事件（滑动冲突的问题）
+     *
      * @param isOpen
      */
     public void setMyTouch(boolean isOpen) {
         if (myTouch && !isOpen)
             modCount--;
-        if(!myTouch && isOpen)
+        if (!myTouch && isOpen)
             modCount++;
         myTouch = isOpen;
     }
@@ -143,7 +184,7 @@ public class XSwipeLayout extends FrameLayout {
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        if(preOpen)
+        if (preOpen)
             close();
     }
 
@@ -151,7 +192,7 @@ public class XSwipeLayout extends FrameLayout {
     public void onScreenStateChanged(int screenState) {
         super.onScreenStateChanged(screenState);
         //屏幕关闭时确保菜单view的状态为关闭（解决使用缩放的话会发生错位的问题）
-        if(screenState == SCREEN_STATE_ON && isOpen){
+        if (screenState == SCREEN_STATE_ON && isOpen) {
             close();
         }
     }
@@ -181,65 +222,110 @@ public class XSwipeLayout extends FrameLayout {
     /**
      * 设置菜单view完全显示的时候，与屏幕的滑动方向的距离
      * 类似DrawLayout打开的时候右边留下的空白间距
+     *
      * @param gap
      */
     public void setViewGap(int gap) {
         viewGap = (int) (getResources().getDisplayMetrics().density * gap + 0.5f);
     }
 
-    //菜单view打开（完全可见）
+
+    /**
+     * 菜单view打开。如果有设置动画则按动画进行移动打开
+     */
     public void open() {
-        if (swipeFlag == FLAG_RIGHT) {
-            content.layout(divinerX - cWidth, 0, cWidth - mWidth, cHeight);
-            menu.layout(divinerX, 0, divinerX + mWidth, mHeight);
-        } else if (swipeFlag == FLAG_LEFT) {
-            content.layout(mWidth, 0, cWidth + mWidth, cHeight);
-            menu.layout(0, 0, mWidth, mHeight);
-        } else if (swipeFlag == FLAG_TOP) {
-            content.layout(0, divinerY, cWidth, mHeight + cHeight);
-            menu.layout(0, 0, mWidth, mHeight);
-        } else if (swipeFlag == FLAG_BOTTOM) {
-            content.layout(0, -mHeight, cWidth, cHeight - mHeight);
-            menu.layout(0, divinerY, mWidth, cHeight);
-        }
-
-        isOpen = true;
-        preOpen = true;
-        Log.d(TAG, "open: "+preOpen);
-        percent = 1.0f;
-        if (swipeListener != null)
-            swipeListener.onOpen(pos);
+        if(openAnim!=null) {
+            openAnim.cancel();
+            openAnim.setFloatValues(percent, 1);
+            openAnim.start();
+        }else
+            open(1);
     }
 
-    //菜单view关闭（完全不可见）
+    /**
+     * 菜单view关闭。如果有设置动画则按动画进行移动关闭
+     */
     public void close() {
+        if(closeAnim!=null) {
+            closeAnim.cancel();
+            closeAnim.setFloatValues(percent, 1);
+            closeAnim.start();
+        }else
+            close(1);
+    }
+
+    /**
+     * 根据比例移动内容view与菜单view（打开菜单view）
+     * @param fraction 菜单view可见部分与总大小的的比例
+     */
+    public void open(float fraction) {
+        if (fraction < percent)
+            fraction = percent;
         if (swipeFlag == FLAG_RIGHT) {
-            content.layout(0, 0, cWidth, cHeight);
-            menu.layout(cWidth, 0, cWidth + mWidth, mHeight);
+            int left = (int) (mWidth * fraction);
+            content.layout(-left, 0, cWidth - left, cHeight);
+            menu.layout((cWidth - left), 0, cWidth - left + mWidth, mHeight);
         } else if (swipeFlag == FLAG_LEFT) {
-            content.layout(0, 0, cWidth, cHeight);
-            menu.layout(-mWidth, 0, 0, mHeight);
+            int left = (int) (mWidth * fraction);
+            content.layout(left, 0, cWidth + left, cHeight);
+            menu.layout(-mWidth + left, 0, left, mHeight);
         } else if (swipeFlag == FLAG_TOP) {
-            content.layout(0, 0, cWidth, cHeight);
-            menu.layout(0, -mHeight, mWidth, 0);
+            int top = (int) (mHeight * fraction);
+            content.layout(0, top, cWidth, top + cHeight);
+            menu.layout(0, -mHeight + top, mWidth, top);
         } else if (swipeFlag == FLAG_BOTTOM) {
-            content.layout(0, 0, cWidth, cHeight);
-            menu.layout(0, cHeight, mWidth, cHeight + mHeight);
+            int top = (int) (mHeight * fraction);
+            content.layout(0, -top, cWidth, cHeight - top);
+            menu.layout(0, cHeight - top, mWidth, cHeight - top + mHeight);
         }
-
-
-        isOpen = false;
-        percent = 0.0f;
-
-        if (swipeListener != null) {
-            swipeListener.onClose(pos,preOpen);
-        }
-        if(preOpen) {
-            preOpen = false;
+        if (fraction == 1) {
+            openCount++;
+            isOpen = true;
+            preOpen = true;
+            percent = 1.0f;
+            if (swipeListener != null)
+                swipeListener.onOpen(pos);
         }
     }
 
-    public boolean absClose(){
+    /**
+     * 根据比例移动内容view与菜单view（关闭菜单view）
+     * @param fraction 菜单view可见部分与总大小的的比例
+     */
+    public void close(float fraction) {
+        if (fraction < percent)
+            fraction = percent;
+        if (swipeFlag == FLAG_RIGHT) {
+            int left = (int) (fraction * mWidth);
+            content.layout(-mWidth + left, 0, -mWidth + left + cWidth, cHeight);
+            menu.layout(cWidth - mWidth + left, 0, cWidth + left, mHeight);
+        } else if (swipeFlag == FLAG_LEFT) {
+            int left = (int) (fraction * mWidth);
+            content.layout(mWidth - left, 0, mWidth - left + cWidth, cHeight);
+            menu.layout(-left, 0, -left + mWidth, mHeight);
+        } else if (swipeFlag == FLAG_TOP) {
+            int top = (int) (fraction * mHeight);
+            content.layout(0, mHeight - top, cWidth, mHeight - top + cHeight);
+            menu.layout(0, -top, mWidth, mHeight - top);
+        } else if (swipeFlag == FLAG_BOTTOM) {
+            int top = (int) (fraction * mHeight);
+            content.layout(0, -mHeight + top, cWidth, cHeight - mWidth + top);
+            menu.layout(0, cHeight - mHeight + top, mWidth, cHeight + top);
+        }
+        if (fraction == 1) {
+            openCount++;
+            isOpen = false;
+            percent = 0.0f;
+            if (swipeListener != null) {
+                swipeListener.onClose(pos, preOpen);
+            }
+            if (preOpen) {
+                preOpen = false;
+            }
+        }
+    }
+
+    public boolean absClose() {
         return !preOpen;
     }
 
@@ -250,6 +336,7 @@ public class XSwipeLayout extends FrameLayout {
         menu = getChildAt(0);
     }
 
+    boolean isClick = true;
 
     class Callback extends ViewDragHelper.Callback {
 
@@ -381,7 +468,9 @@ public class XSwipeLayout extends FrameLayout {
                 } else if (yvel < 0) {
                     close();
                 }
+
             }
+
         }
 
         /**
@@ -408,6 +497,18 @@ public class XSwipeLayout extends FrameLayout {
             return cHeight;
         }
 
+        @Override
+        public void onViewDragStateChanged(int state) {
+            super.onViewDragStateChanged(state);
+            if (state == ViewDragHelper.STATE_SETTLING) {
+                isClick = false;
+                getParent().requestDisallowInterceptTouchEvent(true);
+            } else if (state == ViewDragHelper.STATE_IDLE) {
+                isClick = true;
+            } else
+                isClick = false;
+        }
+
         /**
          * 当捕捉到一个view的位置改变后的回调方法
          *
@@ -419,7 +520,6 @@ public class XSwipeLayout extends FrameLayout {
          */
         @Override
         public void onViewPositionChanged(View changedView, int left, int top, int dx, int dy) {
-            percent = 0.0f;
             if (swipeFlag == FLAG_RIGHT) {
                 if (changedView == content) {
                     cLeft = left;
@@ -472,6 +572,11 @@ public class XSwipeLayout extends FrameLayout {
 
     private SwipeListener swipeListener = null;
 
+    /**
+     * 设置滑动监听
+     *
+     * @param onSwipeListener
+     */
     public void setOnSwipeListener(SwipeListener onSwipeListener) {
         swipeListener = onSwipeListener;
     }
@@ -481,4 +586,13 @@ public class XSwipeLayout extends FrameLayout {
     }
 
 
+    /**
+     * 移除所有动画监听器
+     */
+    public void removeAllAnimListener() {
+        if (openAnim != null)
+            openAnim.removeAllUpdateListeners();
+        if (closeAnim != null)
+            closeAnim.removeAllUpdateListeners();
+    }
 }
