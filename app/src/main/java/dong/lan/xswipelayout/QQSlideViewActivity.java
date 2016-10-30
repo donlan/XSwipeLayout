@@ -11,6 +11,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import dong.lan.library.SwipeListener;
 import dong.lan.library.XSwipeLayout;
@@ -78,7 +79,13 @@ public class QQSlideViewActivity extends AppCompatActivity {
 
         @Override
         public Holder onCreateViewHolder(ViewGroup parent, int viewType) {
-            final View view = LayoutInflater.from(QQSlideViewActivity.this).inflate(R.layout.item_list,null);
+            final View view;
+            if(viewType==1){
+                view = LayoutInflater.from(QQSlideViewActivity.this).inflate(R.layout.item_head,null);
+            }else{
+                view = LayoutInflater.from(QQSlideViewActivity.this).inflate(R.layout.item_list,null);
+
+            }
             final Holder holder = new Holder(view);
             holder.swipe.setOnSwipeListener(new SwipeListener() {
                 @Override
@@ -97,12 +104,27 @@ public class QQSlideViewActivity extends AppCompatActivity {
 
                 }
             });
+            holder.itemView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Toast.makeText(holder.itemView.getContext(),holder.getLayoutPosition()+"",Toast.LENGTH_SHORT).show();
+                }
+            });
             return holder;
         }
 
         @Override
         public void onBindViewHolder(Holder holder, int position) {
 
+        }
+
+
+        @Override
+        public int getItemViewType(int position) {
+            if (position==0)
+                return 1;
+            else
+            return 2;
         }
 
         @Override
